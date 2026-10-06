@@ -25,12 +25,14 @@ public class StaffController {
     private final MarketEventRepository eventRepository;
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
+    private final VendorRestrictionRepository restrictionRepository;
     private final AuditService audit;
 
     public StaffController(LotteryResultRepository resultRepository, EntryCheckRepository entryCheckRepository,
                            PatrolRecordRepository patrolRepository, FoodSampleRepository sampleRepository,
                            MarketEventRepository eventRepository, UserRepository userRepository,
-                           PaymentRepository paymentRepository, AuditService audit) {
+                           PaymentRepository paymentRepository, VendorRestrictionRepository restrictionRepository,
+                           AuditService audit) {
         this.resultRepository = resultRepository;
         this.entryCheckRepository = entryCheckRepository;
         this.patrolRepository = patrolRepository;
@@ -38,6 +40,7 @@ public class StaffController {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
+        this.restrictionRepository = restrictionRepository;
         this.audit = audit;
     }
 
@@ -45,7 +48,7 @@ public class StaffController {
         return userRepository.findById(AuthUser.current().id()).orElseThrow();
     }
 
-    /** 当日摊位分配总览（含入场核验状态） */
+    /** 当日摊位分配总览（含入场核验状态与熟食售卖/抽签限制） */
     @GetMapping("/events/{eventId}/assignments")
     public List<Map<String, Object>> assignments(@PathVariable Long eventId) {
         return resultRepository.findByApplicationEventId(eventId).stream().map(r -> {
@@ -53,6 +56,8 @@ public class StaffController {
             m.put("result", r);
             m.put("entryCheck", entryCheckRepository.findByResultId(r.getId()).orElse(null));
             m.put("patrolCount", patrolRepository.findByResultId(r.getId()).size());
+            m.put("restriction", restrictionRepository
+                    .findByVendorId(r.getApplication().getVendor().getId()).orElse(null));
             return m;
         }).toList();
     }
@@ -66,6 +71,8 @@ public class StaffController {
         m.put("result", r);
         m.put("entryCheck", entryCheckRepository.findByResultId(r.getId()).orElse(null));
         m.put("payments", paymentRepository.findByResultId(r.getId()));
+        m.put("restriction", restrictionRepository
+                .findByVendorId(r.getApplication().getVendor().getId()).orElse(null));
         return m;
     }
 

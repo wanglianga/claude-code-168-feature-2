@@ -22,6 +22,7 @@
           <el-menu-item index="/admin/stalls"><el-icon><Grid /></el-icon><span>区域摊位管理</span></el-menu-item>
           <el-menu-item index="/admin/lottery"><el-icon><MagicStick /></el-icon><span>抽签管理</span></el-menu-item>
           <el-menu-item index="/admin/complaints"><el-icon><ChatDotSquare /></el-icon><span>投诉处理</span></el-menu-item>
+          <el-menu-item index="/admin/inspections"><el-icon><Food /></el-icon><span>留样送检</span></el-menu-item>
           <el-menu-item index="/admin/adjustments"><el-icon><SetUp /></el-icon><span>调整与追溯</span></el-menu-item>
           <el-menu-item index="/admin/dashboard"><el-icon><DataAnalysis /></el-icon><span>复盘看板</span></el-menu-item>
           <el-menu-item index="/admin/audits"><el-icon><Memo /></el-icon><span>审计日志</span></el-menu-item>

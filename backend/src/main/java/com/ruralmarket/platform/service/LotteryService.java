@@ -24,12 +24,13 @@ public class LotteryService {
     private final MarketEventRepository eventRepository;
     private final PaymentRepository paymentRepository;
     private final AuditService auditService;
+    private final InspectionService inspectionService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public LotteryService(ApplicationRepository applicationRepository, StallRepository stallRepository,
                           LotteryRunRepository lotteryRunRepository, LotteryResultRepository lotteryResultRepository,
                           MarketEventRepository eventRepository, PaymentRepository paymentRepository,
-                          AuditService auditService) {
+                          AuditService auditService, InspectionService inspectionService) {
         this.applicationRepository = applicationRepository;
         this.stallRepository = stallRepository;
         this.lotteryRunRepository = lotteryRunRepository;
@@ -37,18 +38,20 @@ public class LotteryService {
         this.eventRepository = eventRepository;
         this.paymentRepository = paymentRepository;
         this.auditService = auditService;
+        this.inspectionService = inspectionService;
     }
 
     /** 抽签规则（快照内容，规则调整需改版本号） */
     public Map<String, Object> ruleSnapshot() {
         Map<String, Object> rules = new LinkedHashMap<>();
-        rules.put("version", "1.0");
+        rules.put("version", "1.1");
         rules.put("priority", "老摊主(历史经营>=3次且信用>=60)优先，其余按随机种子排序");
         rules.put("cookedFood", "熟食仅分配至允许熟食且有电源的冷链区摊位");
         rules.put("livePoultry", "活禽仅分配至活禽隔离区摊位");
         rules.put("power", "有用电需求仅分配至有电源摊位");
         rules.put("vehicle", "车辆长度超过摊位上限时不予分配该摊位");
         rules.put("fireLane", "停用摊位(含消防通道)不参与分配");
+        rules.put("cookedDisqualify", "检测不合格被取消熟食抽签资格的摊主，不参与冷链熟食摊位分配");
         rules.put("veteranMinHistory", Constants.VETERAN_MIN_HISTORY);
         rules.put("veteranMinCredit", Constants.VETERAN_MIN_CREDIT);
         return rules;
@@ -56,7 +59,8 @@ public class LotteryService {
 
     /** 算法输入：报名快照 */
     public record AppInput(long id, String category, boolean needsPower, boolean sellsCookedFood,
-                           boolean sellsLivePoultry, Double vehicleLength, boolean veteran, int historyCount) {}
+                           boolean sellsLivePoultry, Double vehicleLength, boolean veteran, int historyCount,
+                           boolean cookedDisqualified) {}
     /** 算法输入：摊位快照 */
     public record StallInput(long id, String stallNo, String zoneCode, boolean hasPower, Double maxVehicleLength,
                              boolean allowsCookedFood, boolean allowsLivePoultry, String allowedCategories) {}
@@ -97,6 +101,8 @@ public class LotteryService {
     private boolean compatible(AppInput app, StallInput s) {
         if (app.sellsCookedFood() && !(s.allowsCookedFood() && s.hasPower())) return false;
         if (app.sellsLivePoultry() && !s.allowsLivePoultry()) return false;
+        // 检测不合格被取消熟食抽签资格者，不分配冷链熟食摊位
+        if (app.cookedDisqualified() && s.allowsCookedFood()) return false;
         if (app.needsPower() && !s.hasPower()) return false;
         if (app.vehicleLength() != null && s.maxVehicleLength() != null
                 && app.vehicleLength() > s.maxVehicleLength()) return false;
@@ -121,7 +127,8 @@ public class LotteryService {
 
         List<AppInput> appInputs = apps.stream().map(a -> new AppInput(
                 a.getId(), a.getCategory(), a.getNeedsPower(), a.getSellsCookedFood(), a.getSellsLivePoultry(),
-                a.getVehicleLength(), a.getVeteran(), a.getVendor().getHistoryCount())).toList();
+                a.getVehicleLength(), a.getVeteran(), a.getVendor().getHistoryCount(),
+                inspectionService.cookedLotteryDisqualified(a.getVendor().getId(), event.getMarketDate()))).toList();
         List<StallInput> stallInputs = stalls.stream().map(s -> new StallInput(
                 s.getId(), s.getStallNo(), s.getZone().getCode(), s.getHasPower(), s.getMaxVehicleLength(),
                 s.getZone().getAllowsCookedFood(), s.getZone().getAllowsLivePoultry(),
@@ -199,7 +206,8 @@ public class LotteryService {
                         Boolean.TRUE.equals(a.get("sellsLivePoultry")),
                         a.get("vehicleLength") == null ? null : ((Number) a.get("vehicleLength")).doubleValue(),
                         Boolean.TRUE.equals(a.get("veteran")),
-                        a.get("historyCount") == null ? 0 : ((Number) a.get("historyCount")).intValue()));
+                        a.get("historyCount") == null ? 0 : ((Number) a.get("historyCount")).intValue(),
+                        Boolean.TRUE.equals(a.get("cookedDisqualified"))));
             }
             List<StallInput> stalls = new ArrayList<>();
             for (Map<?, ?> s : (List<Map<?, ?>>) snapshot.get("stalls")) {

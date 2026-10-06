@@ -20,6 +20,8 @@
                 <el-tag :type="allPaid ? 'success' : 'danger'" size="small">{{ allPaid ? '已缴清' : '有未缴费用' }}</el-tag>
               </el-descriptions-item>
             </el-descriptions>
+            <el-alert v-if="scanned.restriction?.cookedSalesSuspended" type="error" class="mt" :closable="false"
+              :title="`该摊主熟食售卖已暂停${scanned.restriction.suspensionReason ? '：' + scanned.restriction.suspensionReason : ''}，入场时禁止其售卖熟食`" />
             <el-alert v-if="scanned.entryCheck" type="warning" class="mt" :closable="false"
               :title="`已于 ${fmtTime(scanned.entryCheck.checkedAt)} 完成核验（${scanned.entryCheck.staff?.name}）`" />
             <template v-else>
@@ -66,6 +68,12 @@
             </el-table-column>
             <el-table-column label="品类" width="100">
               <template #default="{ row }">{{ categories[row.result.application?.category] }}</template>
+            </el-table-column>
+            <el-table-column label="熟食限制" width="90">
+              <template #default="{ row }">
+                <el-tag v-if="row.restriction?.cookedSalesSuspended" size="small" type="danger">暂停熟食</el-tag>
+                <el-tag v-else-if="row.restriction?.cookedLotteryBanned" size="small" type="warning">取消熟食抽签</el-tag>
+              </template>
             </el-table-column>
             <el-table-column label="入场" width="90">
               <template #default="{ row }">

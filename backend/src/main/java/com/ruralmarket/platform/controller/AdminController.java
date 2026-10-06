@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** 乡镇管理端：集市管理、报名审核、抽签、投诉处理、调整、复盘看板、审计 */
 @RestController
@@ -34,10 +35,13 @@ public class AdminController {
     private final CreditLogRepository creditLogRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
+    private final FoodInspectionRepository inspectionRepository;
+    private final VendorRestrictionRepository restrictionRepository;
     private final LotteryService lotteryService;
     private final AdjustmentService adjustmentService;
     private final CreditService creditService;
     private final AuditService auditService;
+    private final InspectionService inspectionService;
 
     public AdminController(MarketEventRepository eventRepository, ApplicationRepository applicationRepository,
                            LotteryRunRepository runRepository, LotteryResultRepository resultRepository,
@@ -46,9 +50,11 @@ public class AdminController {
                            PaymentRepository paymentRepository, PatrolRecordRepository patrolRepository,
                            FoodSampleRepository sampleRepository, EntryCheckRepository entryCheckRepository,
                            CreditLogRepository creditLogRepository, AuditLogRepository auditLogRepository,
-                           UserRepository userRepository, LotteryService lotteryService,
+                           UserRepository userRepository, FoodInspectionRepository inspectionRepository,
+                           VendorRestrictionRepository restrictionRepository,
+                           LotteryService lotteryService,
                            AdjustmentService adjustmentService, CreditService creditService,
-                           AuditService auditService) {
+                           AuditService auditService, InspectionService inspectionService) {
         this.eventRepository = eventRepository;
         this.applicationRepository = applicationRepository;
         this.runRepository = runRepository;
@@ -64,10 +70,13 @@ public class AdminController {
         this.creditLogRepository = creditLogRepository;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
+        this.inspectionRepository = inspectionRepository;
+        this.restrictionRepository = restrictionRepository;
         this.lotteryService = lotteryService;
         this.adjustmentService = adjustmentService;
         this.creditService = creditService;
         this.auditService = auditService;
+        this.inspectionService = inspectionService;
     }
 
     private User me() {
@@ -235,6 +244,68 @@ public class AdminController {
         return saved;
     }
 
+    // ================= 食品投诉溯源与留样送检 =================
+    /** 投诉溯源：关联摊主留样、购买时间、支付凭证、同批次消费者、巡查记录、保证金 */
+    @GetMapping("/complaints/{id}/trace")
+    public Map<String, Object> complaintTrace(@PathVariable Long id) {
+        return inspectionService.trace(id);
+    }
+
+    public record CreateInspectionReq(@NotNull Long complaintId, @NotNull Long sampleId,
+                                      @NotBlank String labName, String testItems,
+                                      @NotBlank String batchAction, Boolean suspendCooked) {}
+
+    @PostMapping("/inspections")
+    @Transactional
+    public FoodInspection createInspection(@RequestBody CreateInspectionReq req) {
+        return inspectionService.create(new InspectionService.CreateInspectionReq(
+                req.complaintId(), req.sampleId(), req.labName(), req.testItems(),
+                req.batchAction(), req.suspendCooked()), me());
+    }
+
+    @GetMapping("/inspections")
+    public List<FoodInspection> inspections(@RequestParam(required = false) Long eventId,
+                                            @RequestParam(required = false) Long vendorId,
+                                            @RequestParam(required = false) String status) {
+        Stream<FoodInspection> s = inspectionRepository.findAll().stream()
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        if (eventId != null) s = s.filter(x -> x.getEvent().getId().equals(eventId));
+        if (vendorId != null) s = s.filter(x -> x.getVendor().getId().equals(vendorId));
+        if (status != null && !status.isBlank()) s = s.filter(x -> status.equals(x.getStatus()));
+        return s.toList();
+    }
+
+    @GetMapping("/inspections/{id}")
+    public FoodInspection inspectionDetail(@PathVariable Long id) {
+        return inspectionRepository.findById(id).orElseThrow(() -> new BizException("送检单不存在"));
+    }
+
+    public record InspectionResultReq(@NotBlank String status, @NotBlank String resultSummary,
+                                      String reportPhoto, Boolean deductDeposit, Integer creditDelta,
+                                      Boolean disqualifyCooked, String disqualifyUntil, String handleNote) {}
+
+    @PostMapping("/inspections/{id}/result")
+    @Transactional
+    public FoodInspection inspectionResult(@PathVariable Long id, @RequestBody InspectionResultReq req) {
+        return inspectionService.recordResult(id, new InspectionService.ResultReq(
+                req.status(), req.resultSummary(), req.reportPhoto(), req.deductDeposit(),
+                req.creditDelta(), req.disqualifyCooked(), req.disqualifyUntil(), req.handleNote()), me());
+    }
+
+    public record LiftReq(String note) {}
+
+    @PostMapping("/inspections/{id}/lift")
+    @Transactional
+    public FoodInspection liftInspection(@PathVariable Long id, @RequestBody(required = false) LiftReq req) {
+        return inspectionService.liftSuspension(id, req == null ? null : req.note(), me());
+    }
+
+    /** 摊主熟食售卖/抽签资格限制一览 */
+    @GetMapping("/restrictions")
+    public List<VendorRestriction> restrictions() {
+        return restrictionRepository.findAll();
+    }
+
     // ================= 调整（可追溯） =================
     @GetMapping("/adjustments")
     public List<Adjustment> adjustments(@RequestParam(required = false) Long eventId) {
@@ -372,12 +443,26 @@ public class AdminController {
                 .filter(c -> "DIARRHEA".equals(c.getType())).count();
         long shortWeightCount = patrols.stream().filter(p -> Boolean.TRUE.equals(p.getShortWeight())).count();
         double avgHygiene = patrols.stream().mapToInt(PatrolRecord::getHygieneScore).average().orElse(0);
+        List<FoodInspection> inspections = inspectionRepository.findByEventIdOrderByCreatedAtDesc(eventId);
+        long inspectionPending = inspections.stream().filter(i -> InspectionService.PENDING_STATUSES.contains(i.getStatus())).count();
+        long inspectionUnqualified = inspections.stream().filter(i -> "UNQUALIFIED".equals(i.getStatus())).count();
+        long inspectionQualified = inspections.stream().filter(i -> "QUALIFIED".equals(i.getStatus())).count();
+        long cookedSuspendedVendors = restrictionRepository.findAll().stream()
+                .filter(r -> Boolean.TRUE.equals(r.getCookedSalesSuspended())).count();
+        long cookedBannedVendors = restrictionRepository.findAll().stream()
+                .filter(r -> Boolean.TRUE.equals(r.getCookedLotteryBanned())).count();
         Map<String, Object> foodSafety = new LinkedHashMap<>();
         foodSafety.put("sampleRequiredVendors", sampleRequired);
         foodSafety.put("samplesSubmitted", samples.size());
         foodSafety.put("diarrheaComplaints", diarrheaCount);
         foodSafety.put("shortWeightRecords", shortWeightCount);
         foodSafety.put("avgHygieneScore", Math.round(avgHygiene * 100.0) / 100.0);
+        foodSafety.put("inspectionTotal", inspections.size());
+        foodSafety.put("inspectionPending", inspectionPending);
+        foodSafety.put("inspectionQualified", inspectionQualified);
+        foodSafety.put("inspectionUnqualified", inspectionUnqualified);
+        foodSafety.put("cookedSuspendedVendors", cookedSuspendedVendors);
+        foodSafety.put("cookedLotteryBannedVendors", cookedBannedVendors);
         out.put("foodSafety", foodSafety);
 
         // 5) 总体概览

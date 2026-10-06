@@ -33,6 +33,16 @@
                   </el-tag>
                 </el-descriptions-item>
                 <el-descriptions-item label="腹泻类投诉">{{ data.foodSafety.diarrheaComplaints }} 起</el-descriptions-item>
+                <el-descriptions-item label="留样送检">
+                  共 {{ data.foodSafety.inspectionTotal }} 起 ·
+                  <el-tag size="small" type="warning">检测中 {{ data.foodSafety.inspectionPending }}</el-tag>
+                  <el-tag size="small" type="success" style="margin-left:4px">合格 {{ data.foodSafety.inspectionQualified }}</el-tag>
+                  <el-tag size="small" type="danger" style="margin-left:4px">不合格 {{ data.foodSafety.inspectionUnqualified }}</el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="熟食处置">
+                  <el-tag size="small" type="danger">暂停售卖 {{ data.foodSafety.cookedSuspendedVendors }} 家</el-tag>
+                  <el-tag size="small" type="warning" style="margin-left:4px">取消熟食抽签 {{ data.foodSafety.cookedLotteryBannedVendors }} 家</el-tag>
+                </el-descriptions-item>
                 <el-descriptions-item label="缺斤少两记录">{{ data.foodSafety.shortWeightRecords }} 次</el-descriptions-item>
                 <el-descriptions-item label="平均卫生评分">{{ data.foodSafety.avgHygieneScore }} / 5</el-descriptions-item>
               </el-descriptions>

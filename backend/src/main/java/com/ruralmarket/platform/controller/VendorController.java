@@ -5,6 +5,7 @@ import com.ruralmarket.platform.config.BizException;
 import com.ruralmarket.platform.entity.*;
 import com.ruralmarket.platform.repository.*;
 import com.ruralmarket.platform.service.Constants;
+import com.ruralmarket.platform.service.InspectionService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,12 +28,13 @@ public class VendorController {
     private final AdjustmentRepository adjustmentRepository;
     private final ComplaintRepository complaintRepository;
     private final UserRepository userRepository;
+    private final InspectionService inspectionService;
 
     public VendorController(ApplicationRepository applicationRepository, MarketEventRepository eventRepository,
                             LotteryResultRepository resultRepository, PaymentRepository paymentRepository,
                             FoodSampleRepository sampleRepository, CreditLogRepository creditLogRepository,
                             AdjustmentRepository adjustmentRepository, ComplaintRepository complaintRepository,
-                            UserRepository userRepository) {
+                            UserRepository userRepository, InspectionService inspectionService) {
         this.applicationRepository = applicationRepository;
         this.eventRepository = eventRepository;
         this.resultRepository = resultRepository;
@@ -42,6 +44,7 @@ public class VendorController {
         this.adjustmentRepository = adjustmentRepository;
         this.complaintRepository = complaintRepository;
         this.userRepository = userRepository;
+        this.inspectionService = inspectionService;
     }
 
     private User me() {
@@ -165,6 +168,28 @@ public class VendorController {
     @GetMapping("/complaints")
     public List<Complaint> myComplaints() {
         return complaintRepository.findByVendorIdOrderByCreatedAtDesc(me().getId());
+    }
+
+    // ===== 食品留样送检协同 =====
+    /** 我的熟食售卖/抽签资格限制（报名与首页提示） */
+    @GetMapping("/restriction")
+    public com.ruralmarket.platform.entity.VendorRestriction myRestriction() {
+        return inspectionService.myRestriction(me().getId());
+    }
+
+    /** 涉及我的送检单（含暂停熟食售卖、同批次处置要求与检测结果） */
+    @GetMapping("/inspections")
+    public List<FoodInspection> myInspections() {
+        return inspectionService.myInspections(me().getId());
+    }
+
+    public record InspectionReceiptReq(@NotBlank String receiptStatus, String receipt) {}
+
+    /** 送检期间同批次食品处置回执：已下架 / 已留存销售名单 */
+    @PostMapping("/inspections/{id}/receipt")
+    @Transactional
+    public FoodInspection inspectionReceipt(@PathVariable Long id, @RequestBody InspectionReceiptReq req) {
+        return inspectionService.receipt(id, req.receiptStatus(), req.receipt(), me());
     }
 
     /** 摊主申诉（费用争议/保证金扣罚争议/边界纠纷等） */

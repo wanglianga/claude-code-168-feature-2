@@ -18,6 +18,15 @@
         <el-form-item label="联系电话">
           <el-input v-model="form.reporterPhone" />
         </el-form-item>
+        <el-form-item label="购买时间" :required="form.type === 'DIARRHEA'">
+          <el-date-picker v-model="form.purchaseTime" type="datetime" placeholder="选择购买食品的时间"
+            value-format="YYYY-MM-DDTHH:mm:ss" format="YYYY-MM-DD HH:mm" style="width: 100%" />
+          <div class="sub" style="margin:4px 0 0">用于按 48 小时留样规定锁定同批次留样与同批次消费者</div>
+        </el-form-item>
+        <el-form-item label="支付凭证">
+          <ImageUpload v-model="form.paymentProof" />
+          <div class="sub" style="margin:4px 0 0">微信/支付宝付款截图或收据照片（腹泻等食品安全投诉建议上传）</div>
+        </el-form-item>
         <el-form-item label="投诉类型" required>
           <el-select v-model="form.type" style="width: 100%">
             <el-option label="腹泻/食品安全" value="DIARRHEA" />
@@ -30,7 +39,7 @@
         </el-form-item>
         <el-form-item label="情况说明" required>
           <el-input v-model="form.description" type="textarea" :rows="4"
-            placeholder="请描述事情经过，如食用某摊位卤味后腹泻" />
+            placeholder="请描述事情经过，如食用某摊位凉拌菜后腹泻，尽量写明食用时间、就医情况" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="submitting" @click="submit">提交投诉</el-button>
@@ -45,14 +54,18 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../api'
+import ImageUpload from '../components/ImageUpload.vue'
 
 const events = ref([])
 const submitting = ref(false)
-const form = ref({ eventId: null, stallNo: '', reporterName: '', reporterPhone: '', type: 'DIARRHEA', description: '' })
+const form = ref({ eventId: null, stallNo: '', reporterName: '', reporterPhone: '', type: 'DIARRHEA', purchaseTime: null, paymentProof: '', description: '' })
 
 async function submit() {
   if (!form.value.stallNo || !form.value.reporterName || !form.value.description) {
     return ElMessage.warning('请完整填写摊位号、称呼与情况说明')
+  }
+  if (form.value.type === 'DIARRHEA' && !form.value.purchaseTime) {
+    return ElMessage.warning('腹泻投诉请填写购买时间，以便锁定同批次留样')
   }
   submitting.value = true
   try {
@@ -60,6 +73,8 @@ async function submit() {
     ElMessageBox.alert(`投诉编号 #${res.complaintId}，${res.message}`, '提交成功', { type: 'success' })
     form.value.stallNo = ''
     form.value.description = ''
+    form.value.purchaseTime = null
+    form.value.paymentProof = ''
   } finally { submitting.value = false }
 }
 

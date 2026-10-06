@@ -15,6 +15,12 @@
 
     <!-- 摊主首页 -->
     <template v-if="role === 'VENDOR'">
+      <el-alert v-if="restriction?.cookedSalesSuspended" type="error" show-icon :closable="false" class="mt"
+        title="您的熟食售卖已暂停"
+        :description="restriction.suspensionReason || '留样送检处置期间暂停熟食售卖，详情见「食品留样 → 我的留样送检单」'" />
+      <el-alert v-if="restriction?.cookedLotteryBanned" type="warning" show-icon :closable="false" class="mt"
+        :title="`您已被取消熟食摊位抽签资格${restriction.banUntil ? '（至 ' + restriction.banUntil + '）' : '（永久）'}`"
+        :description="restriction.banReason || '检测不合格处置，将影响后续熟食冷链摊位抽签'" />
       <el-row :gutter="16" class="mt">
         <el-col :span="6"><el-card><div class="stat">{{ auth.user?.creditScore }}</div><div class="stat-label">当前信用分</div></el-card></el-col>
         <el-col :span="6"><el-card><div class="stat">{{ auth.user?.historyCount }}</div><div class="stat-label">历史经营次数</div></el-card></el-col>
@@ -88,6 +94,7 @@ const payments = ref([])
 const results = ref([])
 const events = ref([])
 const stats = ref({ events: 0, vendors: 0, stalls: 0, audits: 0 })
+const restriction = ref(null)
 
 const latestResult = computed(() => results.value[0])
 const unpaidCount = computed(() => payments.value.filter(p => p.status === 'UNPAID').length)
@@ -95,11 +102,13 @@ const openEvent = computed(() => events.value.find(e => e.status === 'OPEN'))
 
 onMounted(async () => {
   if (role.value === 'VENDOR') {
-    const [apps, pays, res, evs] = await Promise.all([
+    const [apps, pays, res, evs, restr] = await Promise.all([
       api.get('/vendor/applications'), api.get('/vendor/payments'),
-      api.get('/vendor/results'), api.get('/meta/events')
+      api.get('/vendor/results'), api.get('/meta/events'),
+      api.get('/vendor/restriction').catch(() => null)
     ])
     applications.value = apps; payments.value = pays; results.value = res; events.value = evs
+    restriction.value = restr && typeof restr === 'object' ? restr : null
   } else if (role.value === 'ADMIN') {
     const [evs, vendors, stalls, audits] = await Promise.all([
       api.get('/admin/events'), api.get('/admin/vendors'),

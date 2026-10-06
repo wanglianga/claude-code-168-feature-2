@@ -58,6 +58,24 @@ export const RESULT_STATUS = {
   CANCELLED: { text: '已取消', type: 'info' }
 }
 
+export const INSPECTION_STATUS = {
+  PENDING: { text: '待送检', type: 'info' },
+  IN_LAB: { text: '检测中', type: 'warning' },
+  QUALIFIED: { text: '检测合格', type: 'success' },
+  UNQUALIFIED: { text: '检测不合格', type: 'danger' },
+  CANCELLED: { text: '已撤销', type: 'info' }
+}
+
+export const BATCH_ACTION = {
+  REMOVE: '同批次下架',
+  KEEP_LIST: '留存销售名单'
+}
+
+export const BATCH_RECEIPT_STATUS = {
+  REMOVED: { text: '已下架', type: 'danger' },
+  LIST_KEPT: { text: '已留存名单', type: 'warning' }
+}
+
 export function catName(code) { return CATEGORIES[code] || code || '-' }
 
 export function fmtTime(t) { return t ? String(t).replace('T', ' ').slice(0, 16) : '-' }

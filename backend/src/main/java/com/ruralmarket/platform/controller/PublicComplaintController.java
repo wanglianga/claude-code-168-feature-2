@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +29,8 @@ public class PublicComplaintController {
 
     public record PublicComplaintReq(Long eventId, @NotBlank String stallNo,
                                      @NotBlank String reporterName, String reporterPhone,
-                                     @NotBlank String type, @NotBlank String description) {}
+                                     @NotBlank String type, @NotBlank String description,
+                                     String purchaseTime, String paymentProof) {}
 
     @PostMapping("/public")
     @Transactional
@@ -58,8 +60,24 @@ public class PublicComplaintController {
         c.setReporterPhone(req.reporterPhone());
         c.setType(req.type());
         c.setDescription(req.description());
+        c.setPurchaseTime(parseTime(req.purchaseTime()));
+        c.setPaymentProof(req.paymentProof());
         complaintRepository.save(c);
         return Map.of("message", "投诉已提交，市场管理方将尽快处理",
                 "complaintId", c.getId(), "event", event.getName());
+    }
+
+    /** 兼容 "2026-10-15 08:30"、ISO 本地时间与带偏移量时间 */
+    private LocalDateTime parseTime(String s) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.trim().replace(" ", "T");
+        try {
+            if (t.endsWith("Z") || t.contains("+") || t.matches(".*-\\d{2}:\\d{2}$")) {
+                return java.time.OffsetDateTime.parse(t).toLocalDateTime();
+            }
+            return LocalDateTime.parse(t.length() == 16 ? t + ":00" : t);
+        } catch (Exception e) {
+            throw new BizException("购买时间格式不正确");
+        }
     }
 }

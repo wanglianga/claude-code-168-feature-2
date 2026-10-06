@@ -11,19 +11,28 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** 抽签算法核心规则与确定性测试 */
 class LotteryServiceTest {
-    private final LotteryService service = new LotteryService(null, null, null, null, null, null, null);
+    private final LotteryService service = new LotteryService(null, null, null, null, null, null, null, null);
 
     private static StallInput stall(long id, String no, boolean power, Double maxLen,
                                     boolean cooked, boolean poultry, String cats) {
         return new StallInput(id, no, no.substring(0, 1), power, maxLen, cooked, poultry, cats);
     }
 
+    private static AppInput app(long id, String category, boolean power, boolean cooked,
+                                boolean poultry, Double carLen, boolean veteran, int history) {
+        return new AppInput(id, category, power, cooked, poultry, carLen, veteran, history, false);
+    }
+
+    private static AppInput disqualifiedCookedApp(long id) {
+        return new AppInput(id, "COOKED", true, true, false, 3.0, false, 0, true);
+    }
+
     @Test
     void deterministic_sameSeedSameResult() {
         List<AppInput> apps = List.of(
-                new AppInput(1, "COOKED", true, true, false, 3.0, true, 5),
-                new AppInput(2, "VEG_FRUIT", false, false, false, 4.0, false, 1),
-                new AppInput(3, "LIVE_POULTRY", false, false, true, 5.0, false, 2));
+                app(1, "COOKED", true, true, false, 3.0, true, 5),
+                app(2, "VEG_FRUIT", false, false, false, 4.0, false, 1),
+                app(3, "LIVE_POULTRY", false, false, true, 5.0, false, 2));
         List<StallInput> stalls = List.of(
                 stall(11, "B-01", true, 4.0, true, false, "COOKED"),
                 stall(12, "D-01", false, 5.0, false, false, "VEG_FRUIT"),
@@ -36,7 +45,7 @@ class LotteryServiceTest {
 
     @Test
     void cookedFoodOnlyToColdChainZone() {
-        List<AppInput> apps = List.of(new AppInput(1, "COOKED", true, true, false, 3.0, false, 0));
+        List<AppInput> apps = List.of(app(1, "COOKED", true, true, false, 3.0, false, 0));
         List<StallInput> stalls = List.of(
                 stall(11, "A-01", true, 5.0, false, false, "*"),   // 有电但不许熟食
                 stall(12, "B-01", true, 4.0, true, false, "COOKED")); // 冷链区
@@ -45,8 +54,30 @@ class LotteryServiceTest {
     }
 
     @Test
+    void cookedDisqualifiedVendorExcludedFromColdChain() {
+        // 因检测不合格被取消熟食抽签资格的熟食摊主，不得分配冷链熟食摊位
+        List<AppInput> apps = List.of(disqualifiedCookedApp(1));
+        List<StallInput> stalls = List.of(
+                stall(12, "B-01", true, 4.0, true, false, "COOKED"),
+                stall(13, "B-02", true, 4.0, true, false, "COOKED,PASTRY,COLD_DISH,MEAT"));
+        Map<Long, Long> r = service.assign(apps, stalls, 7L);
+        assertFalse(r.containsKey(1L), "被取消熟食资格者不应分到冷链熟食摊位");
+    }
+
+    @Test
+    void cookedDisqualifiedFlagEntersSnapshotAndIsDeterministic() {
+        List<AppInput> disq = List.of(disqualifiedCookedApp(1));
+        List<StallInput> stalls = List.of(
+                stall(12, "B-01", true, 4.0, true, false, "COOKED"));
+        Map<Long, Long> r1 = service.assign(disq, stalls, 99L);
+        Map<Long, Long> r2 = service.assign(disq, stalls, 99L);
+        assertEquals(r1, r2);
+        assertTrue(r1.isEmpty(), "熟食资格取消应使冷链分配落空");
+    }
+
+    @Test
     void livePoultryOnlyToIsolatedZone() {
-        List<AppInput> apps = List.of(new AppInput(1, "LIVE_POULTRY", false, false, true, 5.0, false, 0));
+        List<AppInput> apps = List.of(app(1, "LIVE_POULTRY", false, false, true, 5.0, false, 0));
         List<StallInput> stalls = List.of(
                 stall(11, "A-01", false, 6.0, false, false, "*"),
                 stall(12, "C-01", false, 6.0, false, true, "LIVE_POULTRY"));
@@ -57,7 +88,7 @@ class LotteryServiceTest {
     @Test
     void powerAndVehicleConstraints() {
         // 需要电 + 车长5.5米：只有 A-02 同时满足
-        List<AppInput> apps = List.of(new AppInput(1, "DAILY_GOODS", true, false, false, 5.5, false, 0));
+        List<AppInput> apps = List.of(app(1, "DAILY_GOODS", true, false, false, 5.5, false, 0));
         List<StallInput> stalls = List.of(
                 stall(11, "A-01", false, 8.0, false, false, "*"),  // 无电
                 stall(12, "A-02", true, 6.0, false, false, "*"),   // 满足
@@ -68,7 +99,7 @@ class LotteryServiceTest {
 
     @Test
     void noCompatibleStallMeansLose() {
-        List<AppInput> apps = List.of(new AppInput(1, "LIVE_POULTRY", false, false, true, 5.0, false, 0));
+        List<AppInput> apps = List.of(app(1, "LIVE_POULTRY", false, false, true, 5.0, false, 0));
         List<StallInput> stalls = List.of(stall(11, "A-01", false, 6.0, false, false, "*"));
         Map<Long, Long> r = service.assign(apps, stalls, 7L);
         assertFalse(r.containsKey(1L), "无兼容摊位应未中签");
@@ -76,7 +107,7 @@ class LotteryServiceTest {
 
     @Test
     void categoryZoneRestriction() {
-        List<AppInput> apps = List.of(new AppInput(1, "CLOTHING", false, false, false, null, false, 0));
+        List<AppInput> apps = List.of(app(1, "CLOTHING", false, false, false, null, false, 0));
         List<StallInput> stalls = List.of(
                 stall(11, "D-01", false, 5.0, false, false, "VEG_FRUIT"), // 只允许果蔬
                 stall(12, "A-01", false, 5.0, false, false, "DAILY_GOODS,CLOTHING"));

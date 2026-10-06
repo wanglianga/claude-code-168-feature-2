@@ -49,6 +49,13 @@ public class Complaint {
     @Column(nullable = false, length = 2000)
     private String description;
 
+    /** 消费者购买时间（食品安全投诉用于锁定留样批次与同批次消费者） */
+    private LocalDateTime purchaseTime;
+
+    /** 支付凭证照片（微信/支付宝/收据，逗号分隔） */
+    @Column(length = 2000)
+    private String paymentProof;
+
     /** SUBMITTED 已提交 / PROCESSING 处理中 / RESOLVED 已办结 / REJECTED 已驳回 */
     @Column(nullable = false, length = 20)
     private String status = "SUBMITTED";

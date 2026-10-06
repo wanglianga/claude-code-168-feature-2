@@ -41,7 +41,7 @@
             <el-table-column prop="reason" label="原因" min-width="200" show-overflow-tooltip />
             <el-table-column label="来源" width="90">
               <template #default="{ row }">
-                {{ { PATROL: '巡查', COMPLAINT: '投诉', ADJUSTMENT: '人工调整', SYSTEM: '系统' }[row.sourceType] }}
+                {{ { PATROL: '巡查', COMPLAINT: '投诉', ADJUSTMENT: '人工调整', INSPECTION: '送检处置', SYSTEM: '系统' }[row.sourceType] }}
               </template>
             </el-table-column>
             <el-table-column label="时间" width="150">

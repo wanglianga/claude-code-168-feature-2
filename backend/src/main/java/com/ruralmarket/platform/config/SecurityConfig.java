@@ -33,6 +33,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/api/meta/**", "/files/**", "/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/complaints/public").permitAll()
+                // 消费者免登录投诉时需上传支付凭证（FileController 已限定图片类型与大小）
+                .requestMatchers(HttpMethod.POST, "/api/files/upload").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
                 .requestMatchers("/api/vendor/**").hasAnyRole("VENDOR", "ADMIN")
