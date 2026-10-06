@@ -34,6 +34,8 @@ public class AdminController {
     private final CreditLogRepository creditLogRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
+    private final LabTestRepository labTestRepository;
+    private final SalesSuspensionRepository suspensionRepository;
     private final LotteryService lotteryService;
     private final AdjustmentService adjustmentService;
     private final CreditService creditService;
@@ -46,7 +48,9 @@ public class AdminController {
                            PaymentRepository paymentRepository, PatrolRecordRepository patrolRepository,
                            FoodSampleRepository sampleRepository, EntryCheckRepository entryCheckRepository,
                            CreditLogRepository creditLogRepository, AuditLogRepository auditLogRepository,
-                           UserRepository userRepository, LotteryService lotteryService,
+                           UserRepository userRepository, LabTestRepository labTestRepository,
+                           SalesSuspensionRepository suspensionRepository,
+                           LotteryService lotteryService,
                            AdjustmentService adjustmentService, CreditService creditService,
                            AuditService auditService) {
         this.eventRepository = eventRepository;
@@ -64,6 +68,8 @@ public class AdminController {
         this.creditLogRepository = creditLogRepository;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
+        this.labTestRepository = labTestRepository;
+        this.suspensionRepository = suspensionRepository;
         this.lotteryService = lotteryService;
         this.adjustmentService = adjustmentService;
         this.creditService = creditService;
@@ -372,12 +378,29 @@ public class AdminController {
                 .filter(c -> "DIARRHEA".equals(c.getType())).count();
         long shortWeightCount = patrols.stream().filter(p -> Boolean.TRUE.equals(p.getShortWeight())).count();
         double avgHygiene = patrols.stream().mapToInt(PatrolRecord::getHygieneScore).average().orElse(0);
+        List<LabTest> labTests = labTestRepository.findByEventIdOrderByCreatedAtDesc(eventId);
         Map<String, Object> foodSafety = new LinkedHashMap<>();
         foodSafety.put("sampleRequiredVendors", sampleRequired);
         foodSafety.put("samplesSubmitted", samples.size());
         foodSafety.put("diarrheaComplaints", diarrheaCount);
         foodSafety.put("shortWeightRecords", shortWeightCount);
         foodSafety.put("avgHygieneScore", Math.round(avgHygiene * 100.0) / 100.0);
+        foodSafety.put("labTests", labTests.size());
+        foodSafety.put("labTesting", labTests.stream().filter(t ->
+                "INITIATED".equals(t.getStatus()) || "SENT".equals(t.getStatus())).count());
+        foodSafety.put("labUnqualified", labTests.stream().filter(t ->
+                "UNQUALIFIED".equals(t.getStatus())).count());
+        foodSafety.put("labQualified", labTests.stream().filter(t ->
+                "QUALIFIED".equals(t.getStatus())).count());
+        // 本集市涉及摊主的熟食售卖暂停/抽签冻结（全局生效中的措施）
+        Set<Long> eventVendorIds = results.stream()
+                .map(r -> r.getApplication().getVendor().getId()).collect(Collectors.toSet());
+        List<SalesSuspension> activeSuspensions = suspensionRepository.findByStatusOrderByCreatedAtDesc("ACTIVE")
+                .stream().filter(s -> eventVendorIds.contains(s.getVendor().getId())).toList();
+        foodSafety.put("cookedSalesSuspended", activeSuspensions.stream()
+                .filter(s -> "SALES_SUSPEND".equals(s.getType()) || "BOTH".equals(s.getType())).count());
+        foodSafety.put("cookedLotteryBanned", activeSuspensions.stream()
+                .filter(s -> "LOTTERY_BAN".equals(s.getType()) || "BOTH".equals(s.getType())).count());
         out.put("foodSafety", foodSafety);
 
         // 5) 总体概览

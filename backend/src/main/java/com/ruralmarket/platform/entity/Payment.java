@@ -20,8 +20,9 @@ public class Payment {
     @JoinColumn(name = "event_id", nullable = false)
     private MarketEvent event;
 
+    /** 行政扣罚款（无中签分配单时）可空 */
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "result_id", nullable = false)
+    @JoinColumn(name = "result_id")
     private LotteryResult result;
 
     @ManyToOne(fetch = FetchType.EAGER)

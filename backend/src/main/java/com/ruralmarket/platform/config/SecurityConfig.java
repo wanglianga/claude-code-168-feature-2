@@ -33,6 +33,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/api/meta/**", "/files/**", "/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/complaints/public").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/files/public-upload").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
                 .requestMatchers("/api/vendor/**").hasAnyRole("VENDOR", "ADMIN")

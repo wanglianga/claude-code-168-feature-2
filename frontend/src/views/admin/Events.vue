@@ -73,9 +73,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="historyRecord" label="历史经营" min-width="140" show-overflow-tooltip />
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="{ PENDING: 'warning', APPROVED: 'primary', REJECTED: 'danger', WON: 'success', LOST: 'info' }[row.status]" size="small">
+            <el-tooltip v-if="row.status === 'BLOCKED'" :content="row.blockReason || '食品安全资格受限'">
+              <el-tag type="danger" size="small">资格受限</el-tag>
+            </el-tooltip>
+            <el-tag v-else :type="{ PENDING: 'warning', APPROVED: 'primary', REJECTED: 'danger', WON: 'success', LOST: 'info' }[row.status]" size="small">
               {{ { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回', WON: '已中签', LOST: '未中签' }[row.status] }}
             </el-tag>
           </template>
@@ -94,7 +97,7 @@
     <!-- 抽签 -->
     <el-dialog v-model="lotteryVisible" :title="`组织抽签 - ${currentEvent?.name}`" width="480px">
       <el-alert type="info" :closable="false" class="mb"
-        title="抽签规则：老摊主优先；熟食→冷链区；活禽→隔离区；用电→带电源摊位；车辆超限排除；消防通道不参与分配" />
+        title="抽签规则：老摊主优先；熟食→冷链区；活禽→隔离区；用电→带电源摊位；车辆超限排除；消防通道不参与分配；送检不合格处于熟食售卖暂停/抽签资格冻结期的摊主不参与熟食类摊位抽签（标记为资格受限）" />
       <el-form label-width="110px">
         <el-form-item label="随机种子" required>
           <el-input-number v-model="lotterySeed" :min="1" style="width: 100%" />

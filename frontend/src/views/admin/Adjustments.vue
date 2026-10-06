@@ -167,12 +167,13 @@ function adjType(t) {
   const map = {
     RELOCATE: { text: '临时调位', type: 'warning' }, RAIN_RELOCATE: { text: '雨天调位', type: 'primary' },
     FEE_WAIVER: { text: '费用减免', type: 'success' }, DEPOSIT_PENALTY: { text: '保证金扣罚', type: 'danger' },
-    CREDIT_ADJUST: { text: '信用调整', type: 'warning' }, CATEGORY_CHANGE: { text: '品类变更', type: 'info' }
+    CREDIT_ADJUST: { text: '信用调整', type: 'warning' }, CATEGORY_CHANGE: { text: '品类变更', type: 'info' },
+    SALES_SUSPEND: { text: '暂停熟食售卖', type: 'danger' }, LOTTERY_BAN: { text: '冻结熟食抽签资格', type: 'danger' }, BOTH: { text: '暂停售卖+冻结抽签', type: 'danger' }
   }
   return map[t] || { text: t, type: 'info' }
 }
 function sourceText(s) {
-  return { RAIN: '雨天', COMPLAINT: '投诉处理', PATROL: '巡查记录', DISPUTE: '争议处理', REQUEST: '摊主申请', POLICY: '政策减免', OTHER: '其他' }[s] || s
+  return { RAIN: '雨天', COMPLAINT: '投诉处理', PATROL: '巡查记录', DISPUTE: '争议处理', REQUEST: '摊主申请', POLICY: '政策减免', LAB_TEST: '留样送检', OTHER: '其他' }[s] || s
 }
 function payText(s) {
   return { UNPAID: '未缴', PAID: '已缴', WAIVED: '已减免', DEDUCTED: '已扣罚' }[s] || s

@@ -129,12 +129,15 @@ function adjType(t) {
     FEE_WAIVER: { text: '费用减免', type: 'success' },
     DEPOSIT_PENALTY: { text: '保证金扣罚', type: 'danger' },
     CREDIT_ADJUST: { text: '信用调整', type: 'warning' },
-    CATEGORY_CHANGE: { text: '品类变更', type: 'info' }
+    CATEGORY_CHANGE: { text: '品类变更', type: 'info' },
+    SALES_SUSPEND: { text: '暂停熟食售卖', type: 'danger' },
+    LOTTERY_BAN: { text: '冻结熟食抽签资格', type: 'danger' },
+    BOTH: { text: '暂停售卖+冻结抽签', type: 'danger' }
   }
   return map[t] || { text: t, type: 'info' }
 }
 function sourceText(s) {
-  return { RAIN: '雨天', COMPLAINT: '投诉处理', PATROL: '巡查记录', DISPUTE: '争议处理', REQUEST: '摊主申请', POLICY: '政策减免', OTHER: '其他' }[s] || s
+  return { RAIN: '雨天', COMPLAINT: '投诉处理', PATROL: '巡查记录', DISPUTE: '争议处理', REQUEST: '摊主申请', POLICY: '政策减免', LAB_TEST: '留样送检', OTHER: '其他' }[s] || s
 }
 function statusText(s) {
   return { SUBMITTED: '已提交', PROCESSING: '处理中', RESOLVED: '已办结', REJECTED: '已驳回' }[s] || s

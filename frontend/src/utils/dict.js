@@ -44,18 +44,58 @@ export const COMPLAINT_STATUS = {
 
 export const ADJUST_TYPES = {
   RELOCATE: '临时调位', RAIN_RELOCATE: '雨天调位', FEE_WAIVER: '费用减免',
-  DEPOSIT_PENALTY: '保证金扣罚', CREDIT_ADJUST: '信用调整', CATEGORY_CHANGE: '品类变更'
+  DEPOSIT_PENALTY: '保证金扣罚', CREDIT_ADJUST: '信用调整', CATEGORY_CHANGE: '品类变更',
+  SALES_SUSPEND: '暂停熟食售卖', LOTTERY_BAN: '冻结熟食抽签资格', BOTH: '暂停售卖+冻结抽签'
 }
 
 export const ADJUST_SOURCES = {
   RAIN: '雨天', COMPLAINT: '投诉处理', PATROL: '巡查发现', DISPUTE: '争议处理',
-  REQUEST: '摊主申请', POLICY: '政策减免', OTHER: '其他'
+  REQUEST: '摊主申请', POLICY: '政策减免', LAB_TEST: '留样送检', OTHER: '其他'
 }
 
 export const RESULT_STATUS = {
   ASSIGNED: { text: '已分配', type: 'success' },
   RELOCATED: { text: '已调位', type: 'warning' },
-  CANCELLED: { text: '已取消', type: 'info' }
+  CANCELLED: { text: '已取消', type: 'info' },
+  BLOCKED: { text: '资格受限', type: 'danger' }
+}
+
+export const LAB_TEST_STATUS = {
+  INITIATED: { text: '已发起待抽样', type: 'warning' },
+  SENT: { text: '检测中', type: 'primary' },
+  QUALIFIED: { text: '检测合格', type: 'success' },
+  UNQUALIFIED: { text: '检测不合格', type: 'danger' },
+  CANCELLED: { text: '已撤销', type: 'info' }
+}
+
+export const BATCH_CONTROL = {
+  REMOVE: '立即下架',
+  KEEP_LIST: '留存销售名单'
+}
+
+export const SELLING_STATUS = {
+  ON_SALE: { text: '在售', type: 'danger' },
+  REMOVED: { text: '已下架', type: 'success' },
+  KEPT_LIST: { text: '已留存名单', type: 'warning' },
+  SOLD_OUT: { text: '已售罄', type: 'info' }
+}
+
+export const SUSPENSION_TYPE = {
+  SALES_SUSPEND: '暂停熟食售卖',
+  LOTTERY_BAN: '冻结熟食抽签资格',
+  BOTH: '暂停售卖+冻结抽签'
+}
+
+export const SUSPENSION_STATUS = {
+  ACTIVE: { text: '生效中', type: 'danger' },
+  REVOKED: { text: '已解除', type: 'success' },
+  EXPIRED: { text: '已到期', type: 'info' }
+}
+
+export const SUSPENSION_REASON = {
+  INVESTIGATING: '送检调查期间',
+  LAB_UNQUALIFIED: '检测不合格',
+  MANUAL: '管理员决定'
 }
 
 export function catName(code) { return CATEGORIES[code] || code || '-' }

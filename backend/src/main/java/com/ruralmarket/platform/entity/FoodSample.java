@@ -43,9 +43,23 @@ public class FoodSample {
     @Column(nullable = false, length = 200)
     private String storageLocation;
 
-    /** KEPT 已留样 / DISPOSED 已处置 / ABNORMAL 异常 */
+    /** KEPT 已留样 / DISPOSED 已处置 / ABNORMAL 异常 / LAB_TESTING 送检中 / LAB_SENT 已送实验室 / DESTROYED 已销毁 */
     @Column(nullable = false, length = 20)
     private String status = "KEPT";
+
+    /** 送检管控期间该批次食品在售状态：ON_SALE 在售 / REMOVED 已下架 / SOLD_OUT 已售罄 / KEPT_LIST 留存销售名单 */
+    @Column(nullable = false, length = 20)
+    private String sellingStatus = "ON_SALE";
+
+    /** 摊主登记的同批次销售名单（JSON：[{buyer,phone,qty,soldAt,note}]） */
+    @Column(length = 4000)
+    private String salesList;
+
+    /** 摊主下架/留存名单的确认说明 */
+    @Column(length = 1000)
+    private String salesListNote;
+
+    private LocalDateTime salesListUpdatedAt;
 
     @Column(length = 500)
     private String remark;

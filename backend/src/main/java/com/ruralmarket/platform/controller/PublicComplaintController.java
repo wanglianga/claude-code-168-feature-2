@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +29,9 @@ public class PublicComplaintController {
 
     public record PublicComplaintReq(Long eventId, @NotBlank String stallNo,
                                      @NotBlank String reporterName, String reporterPhone,
-                                     @NotBlank String type, @NotBlank String description) {}
+                                     @NotBlank String type, @NotBlank String description,
+                                     String foodName, String purchaseTime,
+                                     String paymentProof, String batchNo) {}
 
     @PostMapping("/public")
     @Transactional
@@ -58,6 +61,12 @@ public class PublicComplaintController {
         c.setReporterPhone(req.reporterPhone());
         c.setType(req.type());
         c.setDescription(req.description());
+        c.setFoodName(req.foodName());
+        if (req.purchaseTime() != null && !req.purchaseTime().isBlank()) {
+            c.setPurchaseTime(LocalDateTime.parse(req.purchaseTime()));
+        }
+        c.setPaymentProof(req.paymentProof());
+        c.setBatchNo(req.batchNo());
         complaintRepository.save(c);
         return Map.of("message", "投诉已提交，市场管理方将尽快处理",
                 "complaintId", c.getId(), "event", event.getName());

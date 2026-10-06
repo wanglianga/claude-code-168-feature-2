@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** 抽签算法核心规则与确定性测试 */
 class LotteryServiceTest {
-    private final LotteryService service = new LotteryService(null, null, null, null, null, null, null);
+    private final LotteryService service = new LotteryService(null, null, null, null, null, null, null, null);
 
     private static StallInput stall(long id, String no, boolean power, Double maxLen,
                                     boolean cooked, boolean poultry, String cats) {

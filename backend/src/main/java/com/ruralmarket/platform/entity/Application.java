@@ -49,9 +49,13 @@ public class Application {
     @Column(length = 1000)
     private String historyRecord;
 
-    /** PENDING 待审核 / APPROVED 已通过(待抽签) / REJECTED 已驳回 / WON 已中签 / LOST 未中签 */
+    /** PENDING 待审核 / APPROVED 已通过(待抽签) / REJECTED 已驳回 / WON 已中签 / LOST 未中签 / BLOCKED 资格受限不参与本次抽签 */
     @Column(nullable = false, length = 20)
     private String status = "PENDING";
+
+    /** BLOCKED 时的受限原因（如熟食抽检不合格，抽签资格冻结期内） */
+    @Column(length = 500)
+    private String blockReason;
 
     /** 报名时快照：是否为老摊主 */
     @Column(nullable = false)

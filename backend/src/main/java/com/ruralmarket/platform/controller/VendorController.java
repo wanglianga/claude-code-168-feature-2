@@ -5,6 +5,7 @@ import com.ruralmarket.platform.config.BizException;
 import com.ruralmarket.platform.entity.*;
 import com.ruralmarket.platform.repository.*;
 import com.ruralmarket.platform.service.Constants;
+import com.ruralmarket.platform.service.LabTestService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/** 摊主端：报名、抽签结果、缴费、留样、信用、申诉 */
+/** 摊主端：报名、抽签结果、缴费、留样、信用、申诉、送检与管控 */
 @RestController
 @RequestMapping("/api/vendor")
 public class VendorController {
@@ -27,12 +28,16 @@ public class VendorController {
     private final AdjustmentRepository adjustmentRepository;
     private final ComplaintRepository complaintRepository;
     private final UserRepository userRepository;
+    private final LabTestRepository labTestRepository;
+    private final SalesSuspensionRepository suspensionRepository;
+    private final LabTestService labTestService;
 
     public VendorController(ApplicationRepository applicationRepository, MarketEventRepository eventRepository,
                             LotteryResultRepository resultRepository, PaymentRepository paymentRepository,
                             FoodSampleRepository sampleRepository, CreditLogRepository creditLogRepository,
                             AdjustmentRepository adjustmentRepository, ComplaintRepository complaintRepository,
-                            UserRepository userRepository) {
+                            UserRepository userRepository, LabTestRepository labTestRepository,
+                            SalesSuspensionRepository suspensionRepository, LabTestService labTestService) {
         this.applicationRepository = applicationRepository;
         this.eventRepository = eventRepository;
         this.resultRepository = resultRepository;
@@ -42,6 +47,9 @@ public class VendorController {
         this.adjustmentRepository = adjustmentRepository;
         this.complaintRepository = complaintRepository;
         this.userRepository = userRepository;
+        this.labTestRepository = labTestRepository;
+        this.suspensionRepository = suspensionRepository;
+        this.labTestService = labTestService;
     }
 
     private User me() {
@@ -64,6 +72,19 @@ public class VendorController {
         if (!Constants.CATEGORIES.containsKey(req.category())) throw new BizException("经营品类不合法");
         applicationRepository.findByEventIdAndVendorId(event.getId(), vendor.getId())
                 .ifPresent(a -> { throw new BizException("您已提交过该集市的报名"); });
+
+        // 熟食/凉菜类报名：
+        //  - 熟食售卖暂停期内：不得报名该集市熟食/凉菜类品类；
+        //  - 抽签资格冻结期内：可以报名，但抽签时将被标记为"资格受限"不参与分配（抽签页公示原因）。
+        boolean cookedLike = Constants.SAMPLE_REQUIRED.contains(req.category())
+                || Boolean.TRUE.equals(req.sellsCookedFood());
+        if (cookedLike) {
+            labTestService.cookedSalesSuspended(vendor, event.getMarketDate()).ifPresent(s -> {
+                throw new BizException("您的熟食售卖被暂停至 "
+                        + (s.getEndDate() == null ? "解除日" : s.getEndDate())
+                        + "，该集市不可报名熟食/凉菜类品类（可改报其他品类）");
+            });
+        }
 
         Application app = new Application();
         app.setEvent(event);
@@ -189,5 +210,49 @@ public class VendorController {
         c.setType(req.type());
         c.setDescription(req.description());
         return complaintRepository.save(c);
+    }
+
+    // ===== 留样送检与同批次管控（摊主端） =====
+
+    /** 与我相关的送检单（含管控要求与检测结果） */
+    @GetMapping("/lab-tests")
+    public List<LabTest> myLabTests() {
+        return labTestRepository.findByVendorIdOrderByCreatedAtDesc(me().getId());
+    }
+
+    /** 我当前的熟食售卖暂停 / 抽签资格冻结记录 */
+    @GetMapping("/suspensions")
+    public List<SalesSuspension> mySuspensions() {
+        return suspensionRepository.findByVendorIdOrderByCreatedAtDesc(me().getId());
+    }
+
+    /** 待我响应的同批次管控：送检中的留样及其批次管控方式 */
+    @GetMapping("/batch-controls")
+    public List<Map<String, Object>> pendingBatchControls() {
+        return labTestRepository.findByVendorIdOrderByCreatedAtDesc(me().getId()).stream()
+                .filter(t -> "INITIATED".equals(t.getStatus()) || "SENT".equals(t.getStatus()))
+                .filter(t -> t.getSample() != null)
+                .<Map<String, Object>>mapMulti((t, sink) -> {
+                    FoodSample s = t.getSample();
+                    boolean pending = "REMOVE".equals(t.getBatchControl())
+                            ? !"REMOVED".equals(s.getSellingStatus())
+                            : !"KEPT_LIST".equals(s.getSellingStatus());
+                    if (!pending) return;
+                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("labTest", t);
+                    m.put("sample", s);
+                    sink.accept(m);
+                }).toList();
+    }
+
+    public record SalesControlReq(@NotBlank String sellingStatus,
+                                  List<Map<String, Object>> salesList, String note) {}
+
+    /** 摊主响应同批次管控：确认下架 / 提交留存销售名单 */
+    @PostMapping("/samples/{id}/sales-control")
+    @Transactional
+    public FoodSample salesControl(@PathVariable Long id, @RequestBody SalesControlReq req) {
+        return labTestService.submitSalesControl(id, req.sellingStatus(), req.salesList(),
+                req.note(), me());
     }
 }

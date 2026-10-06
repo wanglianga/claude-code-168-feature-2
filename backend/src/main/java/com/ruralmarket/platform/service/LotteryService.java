@@ -23,32 +23,35 @@ public class LotteryService {
     private final LotteryResultRepository lotteryResultRepository;
     private final MarketEventRepository eventRepository;
     private final PaymentRepository paymentRepository;
+    private final LabTestService labTestService;
     private final AuditService auditService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public LotteryService(ApplicationRepository applicationRepository, StallRepository stallRepository,
                           LotteryRunRepository lotteryRunRepository, LotteryResultRepository lotteryResultRepository,
                           MarketEventRepository eventRepository, PaymentRepository paymentRepository,
-                          AuditService auditService) {
+                          LabTestService labTestService, AuditService auditService) {
         this.applicationRepository = applicationRepository;
         this.stallRepository = stallRepository;
         this.lotteryRunRepository = lotteryRunRepository;
         this.lotteryResultRepository = lotteryResultRepository;
         this.eventRepository = eventRepository;
         this.paymentRepository = paymentRepository;
+        this.labTestService = labTestService;
         this.auditService = auditService;
     }
 
     /** 抽签规则（快照内容，规则调整需改版本号） */
     public Map<String, Object> ruleSnapshot() {
         Map<String, Object> rules = new LinkedHashMap<>();
-        rules.put("version", "1.0");
+        rules.put("version", "1.1");
         rules.put("priority", "老摊主(历史经营>=3次且信用>=60)优先，其余按随机种子排序");
         rules.put("cookedFood", "熟食仅分配至允许熟食且有电源的冷链区摊位");
         rules.put("livePoultry", "活禽仅分配至活禽隔离区摊位");
         rules.put("power", "有用电需求仅分配至有电源摊位");
         rules.put("vehicle", "车辆长度超过摊位上限时不予分配该摊位");
         rules.put("fireLane", "停用摊位(含消防通道)不参与分配");
+        rules.put("foodSafetyBan", "留样送检不合格被冻结熟食抽签资格的摊主，在冻结期内不参与熟食/凉菜类摊位抽签");
         rules.put("veteranMinHistory", Constants.VETERAN_MIN_HISTORY);
         rules.put("veteranMinCredit", Constants.VETERAN_MIN_CREDIT);
         return rules;
@@ -114,10 +117,37 @@ public class LotteryService {
         if (!"CLOSED".equals(event.getStatus())) {
             throw new BizException("请先截止报名再组织抽签（当前状态：" + event.getStatus() + "）");
         }
-        List<Application> apps = applicationRepository.findByEventIdAndStatus(event.getId(), "APPROVED");
-        if (apps.isEmpty()) throw new BizException("没有已通过审核的报名，无法抽签");
+        List<Application> approvedApps = applicationRepository.findByEventIdAndStatus(event.getId(), "APPROVED");
+        if (approvedApps.isEmpty()) throw new BizException("没有已通过审核的报名，无法抽签");
         List<Stall> stalls = stallRepository.findByActiveTrueOrderByStallNo();
         if (stalls.isEmpty()) throw new BizException("没有可用摊位，请先配置摊位");
+
+        // 食品安全联动：熟食/凉菜类摊主在售卖暂停或抽签资格冻结期内，不参与本次抽签
+        List<Application> apps = new ArrayList<>();
+        List<String> blockNotes = new ArrayList<>();
+        for (Application a : approvedApps) {
+            boolean cookedLike = Constants.SAMPLE_REQUIRED.contains(a.getCategory())
+                    || Boolean.TRUE.equals(a.getSellsCookedFood());
+            if (!cookedLike) { apps.add(a); continue; }
+            Optional<SalesSuspension> ban = labTestService.cookedLotteryBan(a.getVendor(), event.getMarketDate());
+            Optional<SalesSuspension> susp = labTestService.cookedSalesSuspended(a.getVendor(), event.getMarketDate());
+            if (ban.isPresent() || susp.isPresent()) {
+                SalesSuspension hit = ban.orElseGet(() -> susp.get());
+                String reason = LabTestService.typeText(hit.getType())
+                        + "至" + (hit.getEndDate() == null ? "解除日" : hit.getEndDate())
+                        + "（来源：" + hit.getReasonType() + (hit.getSourceRefId() != null
+                            ? " 单据#" + hit.getSourceRefId() : "") + "）";
+                a.setStatus("BLOCKED");
+                a.setBlockReason(reason);
+                applicationRepository.save(a);
+                blockNotes.add("摊主[" + a.getVendor().getName() + "] " + reason);
+                auditService.log(operator.getId(), operator.getName(), "LOTTERY_BLOCK",
+                        "集市[" + event.getName() + "] 抽签资格拦截：" + reason);
+            } else {
+                apps.add(a);
+            }
+        }
+        if (apps.isEmpty()) throw new BizException("没有可参与抽签的报名（可能全部处于熟食资格受限期）");
 
         List<AppInput> appInputs = apps.stream().map(a -> new AppInput(
                 a.getId(), a.getCategory(), a.getNeedsPower(), a.getSellsCookedFood(), a.getSellsLivePoultry(),
@@ -142,7 +172,8 @@ public class LotteryService {
         } catch (Exception e) {
             throw new BizException("快照序列化失败: " + e.getMessage());
         }
-        run.setRemark("应抽 " + apps.size() + " 家，中签 " + assignment.size() + " 家");
+        run.setRemark("应抽 " + approvedApps.size() + " 家，中签 " + assignment.size() + " 家"
+                + (blockNotes.isEmpty() ? "" : "，食品安全资格拦截 " + blockNotes.size() + " 家"));
         run = lotteryRunRepository.save(run);
 
         Map<Long, Stall> stallMap = new HashMap<>();

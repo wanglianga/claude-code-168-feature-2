@@ -40,6 +40,21 @@ public class Complaint {
     @Column(length = 20)
     private String reporterPhone;
 
+    /** 购买食品名称（如：凉拌黄瓜），腹泻等食品安全投诉建议填写 */
+    @Column(length = 100)
+    private String foodName;
+
+    /** 购买/食用时间 */
+    private LocalDateTime purchaseTime;
+
+    /** 支付凭证截图（逗号分隔 URL），用于核对购买事实与时间 */
+    @Column(length = 1000)
+    private String paymentProof;
+
+    /** 购买包装上标注的批次号（与摊主留样批次比对，可空） */
+    @Column(length = 50)
+    private String batchNo;
+
     /** DIARRHEA 腹泻食品安全 / PRICE 价格 / SHORT_WEIGHT 缺斤少两 / HYGIENE 卫生 /
      *  QUALITY 质量 / BOUNDARY 摊位边界纠纷 / FEE_DISPUTE 费用争议 /
      *  DEPOSIT_DISPUTE 保证金扣罚争议 / OTHER 其他 */

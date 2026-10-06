@@ -25,6 +25,16 @@ public class FileController {
 
     @PostMapping("/upload")
     public Map<String, String> upload(@RequestParam("file") MultipartFile file) throws IOException {
+        return save(file);
+    }
+
+    /** 消费者投诉（免登录）上传支付凭证等图片，同样限制为图片类型 */
+    @PostMapping("/public-upload")
+    public Map<String, String> publicUpload(@RequestParam("file") MultipartFile file) throws IOException {
+        return save(file);
+    }
+
+    private Map<String, String> save(MultipartFile file) throws IOException {
         if (file.isEmpty()) throw new BizException("文件为空");
         String original = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
         String ext = original.contains(".")

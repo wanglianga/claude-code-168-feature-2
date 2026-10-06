@@ -46,9 +46,14 @@
         <el-table-column prop="storageLocation" label="保存位置" min-width="130" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'KEPT' ? 'success' : 'warning'" size="small">
-              {{ { KEPT: '已留样', DISPOSED: '已处置', ABNORMAL: '异常' }[row.status] }}
+            <el-tag :type="row.status === 'KEPT' ? 'success' : row.status === 'ABNORMAL' ? 'danger' : 'warning'" size="small">
+              {{ { KEPT: '已留样', DISPOSED: '已处置', ABNORMAL: '异常', LAB_TESTING: '送检中', LAB_SENT: '已送机构', DESTROYED: '已销毁' }[row.status] }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="同批次管控" width="110">
+          <template #default="{ row }">
+            <el-tag size="small" :type="SELLING_STATUS[row.sellingStatus]?.type">{{ SELLING_STATUS[row.sellingStatus]?.text }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="留样时间" width="150">
@@ -63,7 +68,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../../api'
-import { fmtTime } from '../../utils/dict'
+import { fmtTime, SELLING_STATUS } from '../../utils/dict'
 import ImageUpload from '../../components/ImageUpload.vue'
 
 const results = ref([])

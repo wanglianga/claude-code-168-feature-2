@@ -35,6 +35,22 @@
                 <el-descriptions-item label="腹泻类投诉">{{ data.foodSafety.diarrheaComplaints }} 起</el-descriptions-item>
                 <el-descriptions-item label="缺斤少两记录">{{ data.foodSafety.shortWeightRecords }} 次</el-descriptions-item>
                 <el-descriptions-item label="平均卫生评分">{{ data.foodSafety.avgHygieneScore }} / 5</el-descriptions-item>
+                <el-descriptions-item label="留样送检单">
+                  {{ data.foodSafety.labTests }} 份
+                  （检测中 {{ data.foodSafety.labTesting }}，不合格
+                  <el-tag size="small" type="danger">{{ data.foodSafety.labUnqualified }}</el-tag>，合格
+                  {{ data.foodSafety.labQualified }}）
+                </el-descriptions-item>
+                <el-descriptions-item label="暂停熟食售卖">
+                  <el-tag size="small" :type="data.foodSafety.cookedSalesSuspended ? 'danger' : 'info'">
+                    {{ data.foodSafety.cookedSalesSuspended }} 个摊主
+                  </el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="冻结熟食抽签资格">
+                  <el-tag size="small" :type="data.foodSafety.cookedLotteryBanned ? 'danger' : 'info'">
+                    {{ data.foodSafety.cookedLotteryBanned }} 个摊主
+                  </el-tag>
+                </el-descriptions-item>
               </el-descriptions>
               <el-alert v-if="data.foodSafety.samplesSubmitted < data.foodSafety.sampleRequiredVendors"
                 type="error" class="mt" :closable="false" title="存在食品摊位未按要求留样，请督促整改" />
